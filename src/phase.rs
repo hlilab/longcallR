@@ -3012,7 +3012,7 @@ impl SNPFrag {
 //     }
 // }
 
-fn exon_cluster(mut exons: Vec<Exon>, smallest_start: i64, largest_end: i64, min_sup: i32, merge_threshold: f32) -> Vec<Exon> {
+fn exon_cluster(mut exons: Vec<Exon>, smallest_start: i64, largest_end: i64, min_sup: i32) -> HashMap<Exon, i32> {
     let mut cover_vec = vec![0; (largest_end - smallest_start) as usize];
     let mut cover_exon_idx: Vec<Vec<usize>> = vec![Vec::new(); (largest_end - smallest_start) as usize];
     for idx in 0..exons.len() {
@@ -3065,7 +3065,7 @@ fn exon_cluster(mut exons: Vec<Exon>, smallest_start: i64, largest_end: i64, min
     // }
 
     // for each level I cluster, divide them into level II clusters (as hierarchical clustering)
-
+    let mut clusters: HashMap<Exon, i32> = HashMap::new();
     for c in clustersI.iter() {
         let mut exon_hashmap: HashMap<Exon, i32> = HashMap::new();
         for e in c.iter() {
@@ -3087,32 +3087,28 @@ fn exon_cluster(mut exons: Vec<Exon>, smallest_start: i64, largest_end: i64, min
         for e in filter_exons.iter() {
             exon_hashmap.remove(e);
         }
-        println!("exon_hashmap: {:?}", exon_hashmap);
+        // println!("exon_hashmap: {:?}", exon_hashmap);
+        for (e, count) in exon_hashmap.iter() {
+            clusters.insert(e.clone(), *count);
+        }
 
         // merge close exons based on similarity (start, end, length, support)
-        let remain_exons = exon_hashmap.keys().cloned().collect::<Vec<Exon>>();
-        // pairwise similarity
-        let mut pairwise_similarities: HashMap<(Exon, Exon), f32> = HashMap::new();
-        for i in 0..remain_exons.len() {
-            for j in (i + 1)..remain_exons.len() {
-                let e1 = &remain_exons[i];
-                let e2 = &remain_exons[j];
-                let sim = ((e1.start - e2.start).pow(2) as f32 + (e1.end - e2.end).pow(2) as f32).sqrt() / ((e1.end - e1.start).min(e2.end - e2.start) as f32);
-                if e1.start <= e2.start {
-                    pairwise_similarities.insert((e1.clone(), e2.clone()), sim);
-                } else {
-                    pairwise_similarities.insert((e2.clone(), e1.clone()), sim);
-                }
-            }
-        }
-        // TODO: merge exons if the similarity is smaller than threshold_for_merge
-    }
-
-    let mut clusters: Vec<Exon> = Vec::new();
-    for c in clustersI.iter() {
-        for e in c.iter() {
-            clusters.push(e.clone());
-        }
+        // let remain_exons = exon_hashmap.keys().cloned().collect::<Vec<Exon>>();
+        // // pairwise similarity
+        // let mut pairwise_similarities: HashMap<(Exon, Exon), f32> = HashMap::new();
+        // for i in 0..remain_exons.len() {
+        //     for j in (i + 1)..remain_exons.len() {
+        //         let e1 = &remain_exons[i];
+        //         let e2 = &remain_exons[j];
+        //         let sim = ((e1.start - e2.start).pow(2) as f32 + (e1.end - e2.end).pow(2) as f32).sqrt() / ((e1.end - e1.start).min(e2.end - e2.start) as f32);
+        //         if e1.start <= e2.start {
+        //             pairwise_similarities.insert((e1.clone(), e2.clone()), sim);
+        //         } else {
+        //             pairwise_similarities.insert((e2.clone(), e1.clone()), sim);
+        //         }
+        //     }
+        // }
+        // // TODO: merge exons if the similarity is smaller than threshold_for_merge
     }
     return clusters;
 }
@@ -3157,7 +3153,8 @@ pub fn multithread_phase_haplotag(bam_file: String,
                                   no_bam_output: bool,
                                   haplotype_bam_output: bool,
                                   output_read_assignment: bool,
-                                  exon_consensus: bool) {
+                                  haplotype_specific_exon: bool,
+                                  min_sup_haplotype_exon: u32) {
     let pool = rayon::ThreadPoolBuilder::new().num_threads(thread_size).build().unwrap();
     let vcf_records_queue = Mutex::new(VecDeque::new());
     let read_haplotag1_queue = Mutex::new(VecDeque::new());
@@ -3214,7 +3211,7 @@ pub fn multithread_phase_haplotag(bam_file: String,
                     // }
                     snpfrag.add_phase_score(min_allele_cnt, imbalance_allele_expression_cutoff);
                     {
-                        if haplotype_bam_output || exon_consensus {
+                        if haplotype_bam_output || haplotype_specific_exon {
                             let mut queue1 = read_haplotag1_queue.lock().unwrap();
                             let mut queue2 = read_haplotag2_queue.lock().unwrap();
                             let mut hap1_read_count = 0;
@@ -3240,7 +3237,7 @@ pub fn multithread_phase_haplotag(bam_file: String,
                                     }
                                 }
                             }
-                            if exon_consensus && haplotype_read_count_pass {
+                            if haplotype_specific_exon && haplotype_read_count_pass {
                                 let mut hap1_exons: Vec<Exon> = Vec::new();
                                 let mut hap2_exons: Vec<Exon> = Vec::new();
                                 let mut hap1_smallest_start = 0;
@@ -3272,10 +3269,34 @@ pub fn multithread_phase_haplotag(bam_file: String,
                                     }
                                 }
                                 // consensus exons
-                                let hap1_consensus_exons = exon_cluster(hap1_exons.clone(), hap1_smallest_start, hap1_largest_end, 5, 0.1);
-                                let hap2_consensus_exons = exon_cluster(hap2_exons.clone(), hap2_smallest_start, hap2_largest_end, 5, 0.1);
+                                let hap1_consensus_exons = exon_cluster(hap1_exons.clone(), hap1_smallest_start, hap1_largest_end, 0);
+                                let hap2_consensus_exons = exon_cluster(hap2_exons.clone(), hap2_smallest_start, hap2_largest_end, 0);
+
+                                let mut combined_consensus_exons: HashMap<Exon, (i32, i32)> = HashMap::new();
+                                for (e, count) in hap1_consensus_exons.iter() {
+                                    if combined_consensus_exons.contains_key(e) {
+                                        let (c1, c2) = combined_consensus_exons.get_mut(e).unwrap();
+                                        *c1 += *count;
+                                    } else {
+                                        combined_consensus_exons.insert(e.clone(), (*count, 0));
+                                    }
+                                }
+                                for (e, count) in hap2_consensus_exons.iter() {
+                                    if combined_consensus_exons.contains_key(e) {
+                                        let (c1, c2) = combined_consensus_exons.get_mut(e).unwrap();
+                                        *c2 += *count;
+                                    } else {
+                                        combined_consensus_exons.insert(e.clone(), (0, *count));
+                                    }
+                                }
+                                for (e, counts) in combined_consensus_exons.iter() {
+                                    if counts.0 * counts.1 == 0 && counts.0 + counts.1 >= min_sup_haplotype_exon as i32 {
+                                        println!("haplotype specific exon: {}-{}, {:?}:{:?}", e.start, e.end, counts.0, counts.1);
+                                    }
+                                }
                             }
-                        } else {
+                        }
+                        if !no_bam_output {
                             let mut queue = read_haplotag_queue.lock().unwrap();
                             for a in read_assignments.iter() {
                                 queue.push_back((a.0.clone(), a.1.clone()));

@@ -215,9 +215,13 @@ struct Args {
     #[arg(long, action = ArgAction::SetTrue, default_value = "false")]
     no_bam_output: bool,
 
-    /// When set, find haplotype-specific consensus exons.
+    /// When set, find haplotype-specific exons.
     #[arg(long, action = ArgAction::SetTrue, default_value = "false")]
-    exon_consensus: bool,
+    haplotype_specific_exon: bool,
+
+    /// minimum number of reads to support the haplotype-specific exon
+    #[arg(long, default_value_t = 8)]
+    min_sup_haplotype_exon: u32,
 
     /// haplotype_bam_output
     #[arg(long, action = ArgAction::SetTrue, default_value = "false")]
@@ -255,7 +259,7 @@ fn main() {
     let no_bam_output = arg.no_bam_output; // default=false
     let haplotype_bam_output = arg.haplotype_bam_output; // default=false
     let output_read_assignment = arg.output_read_assignment; // default=false
-    let exon_consensus = arg.exon_consensus; // default=false
+    let haplotype_specific_exon = arg.haplotype_specific_exon; // default=false
     let debug_snp = arg.debug_snp; // default=false
     let debug_block = arg.debug_block; // default=false
 
@@ -285,6 +289,7 @@ fn main() {
     let mut read_assignment_cutoff = arg.read_assignment_cutoff;
     let mut imbalance_allele_expression_cutoff = arg.imbalance_allele_expression_cutoff;
     let mut min_homozygous_freq = arg.min_homozygous_freq;
+    let mut min_sup_haplotype_exon = arg.min_sup_haplotype_exon;
 
     if preset.is_some() {
         match preset.unwrap() {
@@ -501,7 +506,8 @@ fn main() {
                                    no_bam_output,
                                    haplotype_bam_output,
                                    output_read_assignment,
-                                   exon_consensus);
+                                   haplotype_specific_exon,
+                                   min_sup_haplotype_exon);
 
         // let region = Region::new(input_region.unwrap());
         // let mut profile = Profile::default();
@@ -624,6 +630,7 @@ fn main() {
                                    no_bam_output,
                                    haplotype_bam_output,
                                    output_read_assignment,
-                                   exon_consensus);
+                                   haplotype_specific_exon,
+                                   min_sup_haplotype_exon);
     }
 }
