@@ -3181,6 +3181,7 @@ pub fn multithread_phase_haplotag(bam_file: String,
     let read_haplotag1_queue = Mutex::new(VecDeque::new());
     let read_haplotag2_queue = Mutex::new(VecDeque::new());
     let read_haplotag_queue = Mutex::new(VecDeque::new());
+    let haplotype_exon_queue = Mutex::new(VecDeque::new());
     // let bam: bam::IndexedReader = bam::IndexedReader::from_path(&bam_file).unwrap();
     // let header = bam::Header::from_template(bam.header());
     // let mut bam_writer = Mutex::new(bam::Writer::from_path(&out_bam, &header, Format::Bam).unwrap());
@@ -3190,6 +3191,10 @@ pub fn multithread_phase_haplotag(bam_file: String,
         panic!("Reference index file .fai does not exist.");
     }
     let contig_lengths = parse_fai(fai_path.as_str());
+    let mut contig_order = Vec::new();
+    for (k, _) in contig_lengths.iter() {
+        contig_order.push(k.clone());
+    }
 
     // multiplethreads for low coverage regions
     pool.install(|| {
@@ -3232,6 +3237,7 @@ pub fn multithread_phase_haplotag(bam_file: String,
                     //     }
                     // }
                     snpfrag.add_phase_score(min_allele_cnt, imbalance_allele_expression_cutoff);
+                    let mut haplotype_exons: Vec<(Exon, i32, i32)> = Vec::new();
                     {
                         if haplotype_bam_output || haplotype_specific_exon {
                             let mut queue1 = read_haplotag1_queue.lock().unwrap();
@@ -3314,6 +3320,7 @@ pub fn multithread_phase_haplotag(bam_file: String,
                                     if counts.0 * counts.1 == 0 && counts.0 + counts.1 >= min_sup_haplotype_exon as i32 {
                                         if e.state == 1 {
                                             println!("exon1: {}:{}-{}, hap1:{:?}, hap2:{:?}", e.chr, e.start + 1, e.end + 1, counts.0, counts.1);
+                                            haplotype_exons.push((e.clone(), counts.0, counts.1));
                                         }
                                         if e.state == 0 {
                                             let mut start_sum = 0;
@@ -3333,6 +3340,9 @@ pub fn multithread_phase_haplotag(bam_file: String,
                                                 start_mean = start_sum / exon_cnt;
                                             }
                                             println!("exon0: {}:{}-{}, hap1:{:?}, hap2:{:?}", e.chr, start_mean + 1, e.end + 1, counts.0, counts.1);
+                                            let mut ec = e.clone();
+                                            ec.start = start_mean;
+                                            haplotype_exons.push((ec, counts.0, counts.1));
                                         }
                                         if e.state == 2 {
                                             let mut end_sum = 0;
@@ -3352,6 +3362,9 @@ pub fn multithread_phase_haplotag(bam_file: String,
                                                 end_mean = end_sum / exon_cnt;
                                             }
                                             println!("exon2: {}:{}-{}, hap1:{:?}, hap2:{:?}", e.chr, e.start + 1, end_mean + 1, counts.0, counts.1);
+                                            let mut ec = e.clone();
+                                            ec.end = end_mean;
+                                            haplotype_exons.push((ec, counts.0, counts.1));
                                         }
                                         if e.state == 3 {
                                             let relaxed_start = [e.start - 20, e.start + 20];
@@ -3382,6 +3395,7 @@ pub fn multithread_phase_haplotag(bam_file: String,
                                             }
                                             if unique_flag {
                                                 println!("exon3: {}:{}-{}, hap1:{:?}, hap2:{:?}", e.chr, e.start + 1, e.end + 1, counts.0, counts.1);
+                                                haplotype_exons.push((e.clone(), counts.0, counts.1));
                                             }
                                         }
                                     }
@@ -3393,6 +3407,12 @@ pub fn multithread_phase_haplotag(bam_file: String,
                             for a in read_assignments.iter() {
                                 queue.push_back((a.0.clone(), a.1.clone()));
                             }
+                        }
+                    }
+                    if haplotype_specific_exon {
+                        let mut queue = haplotype_exon_queue.lock().unwrap();
+                        for e in haplotype_exons.iter() {
+                            queue.push_back(e.clone());
                         }
                     }
                 }
@@ -3465,6 +3485,33 @@ pub fn multithread_phase_haplotag(bam_file: String,
             assignment_writer.write(format!("{}\t{}\n", rd.0, rd.1).as_bytes()).unwrap();
         }
         drop(assignment_writer);
+    }
+
+    if haplotype_specific_exon {
+        let mut exon_hashmap: HashMap<String, Vec<(Exon, i32, i32)>> = HashMap::new();
+        let mut exon_writer = File::create(phased_bam_file.replace(".phased.bam", ".haplotype_exon.tsv")).unwrap();
+        exon_writer.write("#Chromosome\tExon start\tExon end\tExon state\tHap1 expression\tHap2 expression\n".as_bytes()).unwrap();
+        for rd in haplotype_exon_queue.lock().unwrap().iter() {
+            let e = &rd.0;
+            if exon_hashmap.contains_key(&e.chr) {
+                let exon_vec = exon_hashmap.get_mut(&e.chr).unwrap();
+                exon_vec.push(rd.clone());
+            } else {
+                exon_hashmap.insert(e.chr.clone(), vec![rd.clone()]);
+            }
+        }
+        for chr in contig_order.iter() {
+            if !exon_hashmap.contains_key(chr) {
+                continue;
+            }
+            let mut exons_sorted = exon_hashmap.get(chr).unwrap().clone();
+            exons_sorted.sort_by(|a, b| a.0.start.cmp(&b.0.start));
+            for rd in exons_sorted.iter() {
+                let e = &rd.0;
+                exon_writer.write(format!("{}\t{}\t{}\t{}\t{}\t{}\n", e.chr, e.start + 1, e.end, e.state, rd.1, rd.2).as_bytes()).unwrap();   // 1-based, start inclusive, end inclusive
+            }
+        }
+        drop(exon_writer);
     }
 
     if !no_bam_output {
