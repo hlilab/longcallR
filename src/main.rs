@@ -271,6 +271,7 @@ fn main() {
     let haplotype_specific_exon = arg.haplotype_specific_exon; // default=false
     let debug_snp = arg.debug_snp; // default=false
     let debug_block = arg.debug_block; // default=false
+    let min_sup_haplotype_exon = arg.min_sup_haplotype_exon;
 
     let mut min_mapq = arg.min_mapq;
     let mut min_baseq = arg.min_baseq;
@@ -299,7 +300,6 @@ fn main() {
     let mut read_assignment_cutoff = arg.read_assignment_cutoff;
     let mut imbalance_allele_expression_cutoff = arg.imbalance_allele_expression_cutoff;
     let mut min_homozygous_freq = arg.min_homozygous_freq;
-    let mut min_sup_haplotype_exon = arg.min_sup_haplotype_exon;
 
     if preset.is_some() {
         match preset.unwrap() {
