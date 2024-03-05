@@ -1,3 +1,6 @@
+import argparse
+
+
 def load_hap(hap_vcf):
     gz_flag = False
     if hap_vcf.endswith(".gz"):
@@ -60,3 +63,10 @@ def eval_with_gt(hap_vcf):
                                                                              2 * tp_gt / (2 * tp_gt + fp_gt + fn_gt)))
 
     print("genotype accuracy: {}".format(1 - len(gt_errors) / (tp_gt)))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", help="hap.py output vcf file", required=True)
+    args = parser.parse_args()
+    eval_with_gt(args.i)
