@@ -47,14 +47,19 @@ pub struct CandidateSNP {
 }
 
 #[derive(Debug, Clone, Default)]
+pub struct Node {
+    pub snp_idx: usize,
+    // index of candidate SNPs(SNPFrag.snps)
+}
+
+
+#[derive(Debug, Clone, Default)]
 pub struct Edge {
-    pub snp_idxes: [usize; 2],
-    // index of candidate SNPs(SNPFrag.snps), start node and end node
-    pub snp_poses: [i64; 2],
-    // position of candidate SNPs(SNPFrag.snps), start node and end node
+    pub nodes: [Node; 2],
+    // start node and end node
     pub frag_idxes: Vec<usize>,
     // index of fragments(SNPFrag.fragments) cover this edge.
-    pub w: f64,
+    pub weight: f64,
     // weight of edge,  w_{ij}=\sum_{k}x_{ki}x_{kj}log\frac{1-\epsilon_{kij}}{\epsilon_{kij}}
 }
 
@@ -117,7 +122,7 @@ pub struct SNPFrag {
     // multiple fragments
     pub phased: bool,
     // haplotype is phased or not
-    pub edges: HashMap<[usize; 2], Edge>,
+    pub edges: HashMap<[Node; 2], Edge>,
     // edges of the graph, key is [snp_idx of start_node, snp_idx of end_node]
     pub min_linkers: i32,
 }
@@ -1018,6 +1023,38 @@ impl SNPFrag {
                     self.candidate_snps[fe.snp_idx].snp_cover_fragments.push(fragment.fragment_idx);
                 }
                 self.fragments.push(fragment);
+            }
+        }
+    }
+
+    pub fn build_graph(&mut self) {
+        for fg in self.fragments.iter() {
+            if fg.list.len() == 0 || fg.list.len() == 1 {
+                continue;
+            }
+            for i in 0..fg.list.len() {
+                for j in i + 1..fg.list.len() {
+                    let mut node1 = Node::default();
+                    let mut node2 = Node::default();
+                    node1.snp_idx = fg.list[i].snp_idx;
+                    node2.snp_idx = fg.list[j].snp_idx;
+                    let q1 = 0.1_f64.powf((fg.list[i].baseq as f64) / 10.0); // error probability of node1
+                    let q2 = 0.1_f64.powf((fg.list[j].baseq as f64) / 10.0);  // error probability of node2
+                    let epsilon = q1 * (1.0 - q2) + (1.0 - q1) * q2; // probability of sequencing error only occurs on start node or end node.
+                    let nodes = [node1, node2];
+                    let w = (fg.list[i].p as f64) * (fg.list[j].p as f64) * f64::log10((1.0 - epsilon) / epsilon);
+                    if self.edges.contains(&nodes) {
+                        let e = self.edges.get_mut(&nodes).unwrap();
+                        e.frag_idxes.push(fg.fragment_idx);
+                        e.weight += w;
+                    } else {
+                        let mut e = Edge::default();
+                        e.nodes = nodes.clone();
+                        e.frag_idxes.push(fg.fragment_idx);
+                        e.weight = w;
+                        self.edges.insert(nodes, e);
+                    }
+                }
             }
         }
     }
