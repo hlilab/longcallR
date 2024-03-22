@@ -818,8 +818,6 @@ impl SNPFrag {
                     if allele1_freq >= ase_allele_frac_cutoff && allele1_cnt >= ase_allele_cnt_cutoff {
                         candidate_snp.ase = true;
                         candidate_snp.variant_type = 0;
-                        candidate_snp.rna_editing = false; // The fragment will contain ase snps, so the fields of  rna editing and filter of ase snp are set to false.
-                        candidate_snp.filter = false; // The fragment will contain ase snps, so the fields of  rna editing and filter of ase snp are set to false.
                         self.candidate_snps.push(candidate_snp);
                         self.ase_snps.push(self.candidate_snps.len() - 1);
                         self.ase_hete_snps.push(self.candidate_snps.len() - 1);
@@ -831,8 +829,6 @@ impl SNPFrag {
                     if allele2_freq >= ase_allele_frac_cutoff && allele2_cnt >= ase_allele_cnt_cutoff {
                         candidate_snp.ase = true;
                         candidate_snp.variant_type = 0;
-                        candidate_snp.rna_editing = false; // The fragment will contain ase snps, so the fields of  rna editing and filter of ase snp are set to false.
-                        candidate_snp.filter = false; // The fragment will contain ase snps, so the fields of  rna editing and filter of ase snp are set to false.
                         self.candidate_snps.push(candidate_snp);
                         self.ase_snps.push(self.candidate_snps.len() - 1);
                         self.ase_hete_snps.push(self.candidate_snps.len() - 1);
@@ -845,16 +841,12 @@ impl SNPFrag {
                     if allele1 != bf.ref_base && allele1_freq >= ase_allele_frac_cutoff && allele1_cnt >= ase_allele_cnt_cutoff {
                         candidate_snp.ase = true;
                         candidate_snp.variant_type = 0;
-                        candidate_snp.rna_editing = false;
-                        candidate_snp.filter = false;
                         self.candidate_snps.push(candidate_snp);
                         self.ase_snps.push(self.candidate_snps.len() - 1);
                         self.ase_hete_snps.push(self.candidate_snps.len() - 1);
                     } else if allele2 != bf.ref_base && allele2_freq >= ase_allele_frac_cutoff && allele2_cnt >= ase_allele_cnt_cutoff {
                         candidate_snp.ase = true;
                         candidate_snp.variant_type = 0;
-                        candidate_snp.rna_editing = false;
-                        candidate_snp.filter = false;
                         self.candidate_snps.push(candidate_snp);
                         self.ase_snps.push(self.candidate_snps.len() - 1);
                         self.ase_hete_snps.push(self.candidate_snps.len() - 1);
@@ -887,15 +879,11 @@ impl SNPFrag {
                 }
                 if allele1 != bf.ref_base && allele1_freq >= ase_allele_frac_cutoff && allele1_cnt >= ase_allele_cnt_cutoff {
                     candidate_snp.ase = true;
-                    candidate_snp.rna_editing = false;
-                    candidate_snp.filter = false;
                     self.candidate_snps.push(candidate_snp);
                     self.ase_snps.push(self.candidate_snps.len() - 1);
                     self.ase_hete_snps.push(self.candidate_snps.len() - 1);
                 } else if allele2 != bf.ref_base && allele2_freq >= ase_allele_frac_cutoff && allele2_cnt >= ase_allele_cnt_cutoff {
                     candidate_snp.ase = true;
-                    candidate_snp.rna_editing = false;
-                    candidate_snp.filter = false;
                     self.candidate_snps.push(candidate_snp);
                     self.ase_snps.push(self.candidate_snps.len() - 1);
                     self.ase_hete_snps.push(self.candidate_snps.len() - 1);
@@ -1136,7 +1124,7 @@ impl SNPFrag {
                                 if self.candidate_snps[frag_elem.snp_idx].ase == true {
                                     frag_elem.ase_snp = true;
                                 }
-                                // filtered SNP will not be used for haplotype phasing, ase snp will still be used for construct fragment.
+                                // filtered SNP will not be used for haplotype phasing (including dense snps and rna editing snps)
                                 if self.candidate_snps[frag_elem.snp_idx].filter == false && self.candidate_snps[frag_elem.snp_idx].rna_editing == false && frag_elem.p != 0 {
                                     fragment.list.push(frag_elem);
                                 }
@@ -1350,7 +1338,7 @@ impl SNPFrag {
                                 } else {
                                     frag_elem.p = 0; // not covered
                                 }
-                                // filtered SNP and rna editing site will not be used for haplotype phasing, not covered SNP will not be used for haplotype phasing
+                                // filtered SNP will not be used for haplotype phasing (including dense snps and rna editing snps)
                                 if self.candidate_snps[frag_elem.snp_idx].filter == false && self.candidate_snps[frag_elem.snp_idx].rna_editing == false && frag_elem.p != 0 {
                                     fragment.list.push(frag_elem);
                                 }
