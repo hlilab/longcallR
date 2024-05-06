@@ -28,6 +28,7 @@ pub fn multithread_phase_haplotag(
     min_mapq: u8,
     min_baseq: u8,
     min_allele_freq: f32,
+    min_homozygous_freq: f32,
     hetvar_high_frac_cutoff: f32,
     min_allele_freq_include_intron: f32,
     min_qual_for_candidate: u32,
@@ -150,7 +151,7 @@ pub fn multithread_phase_haplotag(
                     }
                     snpfrag.phase(max_enum_snps, random_flip_fraction, max_iters);
                     let read_assignments = snpfrag.assign_reads_haplotype(read_assignment_cutoff);
-                    snpfrag.assign_het_var_haplotype(min_phase_score, somatic_allele_frac_cutoff, somatic_allele_cnt_cutoff);
+                    snpfrag.assign_het_var_haplotype(min_phase_score, min_homozygous_freq, somatic_allele_frac_cutoff, somatic_allele_cnt_cutoff);
                     snpfrag.eval_low_frac_het_var_phase(min_phase_score, somatic_allele_frac_cutoff, somatic_allele_cnt_cutoff);
                     snpfrag.eval_rna_edit_var_phase(min_phase_score);
                     snpfrag.eval_hom_var_phase(min_phase_score);

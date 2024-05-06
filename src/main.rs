@@ -114,9 +114,9 @@ struct Args {
     #[arg(long, default_value_t = 0.0)]
     min_allele_freq_include_intron: f32,
 
-    // /// Minimum allele frequency for homozygous SNPs
-    // #[arg(long, default_value_t = 0.75)]
-    // min_homozygous_freq: f32,
+    /// Minimum allele frequency for homozygous SNPs
+    #[arg(long, default_value_t = 0.8)]
+    min_homozygous_freq: f32,
 
     /// Minimum variant quality for candidate SNPs
     #[arg(long, default_value_t = 200)]
@@ -284,6 +284,7 @@ fn main() {
     let min_sup_haplotype_exon = arg.min_sup_haplotype_exon;
     let min_mapq = arg.min_mapq;
     let min_baseq = arg.min_baseq;
+    let min_homozygous_freq = arg.min_homozygous_freq;
     let hetvar_high_frac_cutoff = arg.hetvar_high_frac_cutoff;
     let strand_bias_threshold = arg.strand_bias_threshold;
     let cover_strand_bias_threshold = arg.cover_strand_bias_threshold;
@@ -456,6 +457,7 @@ fn main() {
         min_mapq,
         min_baseq,
         min_allele_freq,
+        min_homozygous_freq,
         hetvar_high_frac_cutoff,
         min_allele_freq_include_intron,
         min_qual_for_candidate,
