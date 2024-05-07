@@ -155,9 +155,10 @@ pub fn multithread_phase_haplotag(
                     snpfrag.eval_low_frac_het_var_phase(min_phase_score, somatic_allele_frac_cutoff, somatic_allele_cnt_cutoff);
                     snpfrag.eval_rna_edit_var_phase(min_phase_score);
                     snpfrag.eval_hom_var_phase(min_phase_score);
+                    snpfrag.eval_som_var_phase(somatic_allele_frac_cutoff, somatic_allele_cnt_cutoff);
                     // assign phased fragments to somatic mutations and detect condifent somatic mutations
                     // println!("somatic: {}", snpfrag.somatic_snps.len());
-                    snpfrag.detect_somatic_by_het(&bam_file.as_str(), &reg);
+                    // snpfrag.detect_somatic_by_het(&bam_file.as_str(), &reg);
                     // snpfrag.phase_ase_hete_snps(max_enum_snps, random_flip_fraction, max_iters);
                     // assign reads to haplotypes, filter reads having conflicted ase snps and heterozygous snps
                     // let read_assignments_ase = snpfrag.assign_reads_ase(read_assignment_cutoff);
